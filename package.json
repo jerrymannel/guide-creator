@@ -1,0 +1,14 @@
+{
+  "name": "guide-creator",
+  "version": "1.0.0",
+  "description": "Create engaging guides quickly directly from your browser.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chrome-extension",
+    "guide"
+  ],
+  "author": "Jerry Mannel",
+  "license": "ISC"
+}

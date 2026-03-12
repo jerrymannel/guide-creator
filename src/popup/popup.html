@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide Creator</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Guide Creator</h1>
+    </header>
+    <main>
+      <p>Click "Start Recording" to begin creating a guide on this page.</p>
+      <button id="startBtn" class="primary-btn">Start Recording</button>
+      <button id="stopBtn" class="secondary-btn" hidden>Stop Recording</button>
+    </main>
+    <footer>
+      <span id="status">Ready</span>
+    </footer>
+  </div>
+  <script src="../lib/jspdf.umd.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

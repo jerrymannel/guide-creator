@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Guide Creator",
+  "version": "1.0.0",
+  "description": "Create engaging guides quickly directly from your browser.",
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Open Guide Creator"
+  },
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content.js"],
+      "css": ["src/content/content.css"]
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}
