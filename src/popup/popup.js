@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function generatePDF(steps, pageTitle) {
+  console.log('Generating PDF for steps:', steps);
+  
+  // The UMD bundle of jsPDF 2.5.1 exports to window.jspdf.jsPDF
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   
@@ -64,6 +67,7 @@ async function generatePDF(steps, pageTitle) {
     yOffset += 10;
     
     if (step.screenshot) {
+      console.log(`Adding screenshot for step ${i + 1}`);
       // Default to common aspect ratio assumption (~16:9) to fit on A4
       const imgWidth = 170;
       const imgHeight = imgWidth * (9/16); 
@@ -73,8 +77,14 @@ async function generatePDF(steps, pageTitle) {
         yOffset = 20;
       }
       
-      doc.addImage(step.screenshot, 'PNG', 20, yOffset, imgWidth, imgHeight);
-      yOffset += imgHeight + 10;
+      try {
+        doc.addImage(step.screenshot, 'PNG', 20, yOffset, imgWidth, imgHeight);
+        yOffset += imgHeight + 10;
+      } catch (e) {
+        console.error('Error adding image to PDF:', e);
+        doc.text("[Error adding screenshot]", 20, yOffset);
+        yOffset += 10;
+      }
     } else {
       yOffset += 5; // extra spacing for text-only step
     }
@@ -82,4 +92,11 @@ async function generatePDF(steps, pageTitle) {
   
   const safeFilename = (pageTitle || 'guide').replace(/[^a-z0-9]/gi, '_').toLowerCase();
   doc.save(`${safeFilename}.pdf`);
+
+  // Clear session after download
+  chrome.runtime.sendMessage({ action: 'CLEAR_SESSION' }, (response) => {
+    if (response && response.success) {
+      console.log('Session cleared successfully.');
+    }
+  });
 }

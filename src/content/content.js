@@ -41,6 +41,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
+// Sync status with background script on load
+chrome.runtime.sendMessage({ action: 'GET_STATUS' }, (response) => {
+  if (response && response.isRecording) {
+    isRecording = true;
+    console.log('Content script: Resumed recording state from background.');
+  }
+});
+
 // Helper to get a unique selector for an element
 function getCssSelector(el) {
   if (!(el instanceof Element)) return;
@@ -67,14 +75,14 @@ function getCssSelector(el) {
 // 1. Click Listener
 document.addEventListener('click', (e) => {
   if (!isRecording) return;
-  
+
   // Create highlight circle
   const circle = document.createElement('div');
   circle.className = 'guide-creator-click-circle';
   circle.style.left = e.clientX + 'px';
   circle.style.top = e.clientY + 'px';
   document.body.appendChild(circle);
-  
+
   // Cleanup circle after animation
   setTimeout(() => {
     if (circle.parentNode) {
@@ -105,9 +113,9 @@ document.addEventListener('click', (e) => {
 // 2. Scroll Listener
 window.addEventListener('scroll', () => {
   if (!isRecording) return;
-  
+
   clearTimeout(scrollTimeout);
-  
+
   scrollTimeout = setTimeout(() => {
     const currentScrollY = window.scrollY;
     // Determine scroll direction
@@ -117,7 +125,7 @@ window.addEventListener('scroll', () => {
     } else if (currentScrollY < lastScrollY) {
       direction = 'scroll up';
     }
-    
+
     // Only send if it significantly changed to avoid tiny jitters or if it's actually different
     if (Math.abs(currentScrollY - lastScrollY) > 20) {
       chrome.runtime.sendMessage({
@@ -130,7 +138,7 @@ window.addEventListener('scroll', () => {
         }
       });
     }
-    
+
     lastScrollY = currentScrollY;
   }, 500); // 500ms debounce
 });
@@ -138,16 +146,16 @@ window.addEventListener('scroll', () => {
 // 3. Input / Typings Listener
 document.addEventListener('input', (e) => {
   if (!isRecording) return;
-  
+
   clearTimeout(typeTimeout);
-  
+
   const target = e.target;
   // Make sure it's an input or textarea
   if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') return;
-  
+
   typeTimeout = setTimeout(() => {
     const typedText = target.value;
-    
+
     chrome.runtime.sendMessage({
       action: 'RECORD_STEP',
       step: {

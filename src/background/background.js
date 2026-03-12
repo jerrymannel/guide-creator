@@ -1,62 +1,176 @@
-let isRecording = false;
-let recordingSteps = [];
+// Helper for storage
+const storage = {
+  get: (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve)),
+  set: (items) => new Promise((resolve) => chrome.storage.local.set(items, resolve)),
+  clear: () => new Promise((resolve) => chrome.storage.local.clear(resolve))
+};
+
+let pendingScreenshots = 0;
 
 // Handle messages from the popup or content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'START_RECORDING') {
-    isRecording = true;
-    recordingSteps = []; // Clear previous steps
-    console.log('Recording session started.');
-    
-    // Change badge text or color if desired
-    chrome.action.setBadgeText({ text: 'REC' });
-    chrome.action.setBadgeBackgroundColor({ color: '#E53935' });
-    
-    // Relay to active tab to start capturing
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs && tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'START_RECORDING' }, () => {
-          if (chrome.runtime.lastError) {
-            console.warn('Content script not active.');
-          }
-        });
-      }
-    });
-
-    sendResponse({ status: 'recording' });
+    handleStartRecording(sendResponse);
+    return true;
   } 
   else if (request.action === 'STOP_RECORDING') {
-    isRecording = false;
-    console.log('Recording session stopped.');
-    
-    chrome.action.setBadgeText({ text: '' });
-    
-    // Relay to active tab to stop capturing
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      let pageTitle = 'guide';
-      if (tabs && tabs[0]) {
-        pageTitle = tabs[0].title || 'guide';
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'STOP_RECORDING' }, () => {
-          if (chrome.runtime.lastError) {
-            console.warn('Content script not active.');
-          }
-        });
-      }
-      
-      console.log('Final Guide Steps:', recordingSteps);
-      sendResponse({ status: 'stopped', steps: recordingSteps, pageTitle });
-    });
+    handleStopRecording(sendResponse);
+    return true;
   }
   else if (request.action === 'GET_STATUS') {
-    sendResponse({ isRecording, steps: recordingSteps });
+    handleGetStatus(sendResponse);
+    return true;
+  }
+  else if (request.action === 'CLEAR_SESSION') {
+    handleClearSession(sendResponse);
+    return true;
   }
   else if (request.action === 'CAPTURE_CLICK_STEP') {
-    // Capture the visible tab for the click event
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      // If there's an error capturing (e.g. devtools focus), dataUrl might be undefined
+    handleCaptureClickStep(request, sender, sendResponse);
+    return true;
+  }
+  else if (request.action === 'RECORD_STEP') {
+    handleRecordStep(request, sendResponse);
+    return true;
+  }
+});
+
+// Handle page refreshes or navigations
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete') {
+    const data = await storage.get(['isRecording', 'recordingTabId']);
+    if (data.isRecording && data.recordingTabId === tabId) {
+      console.log('Tab updated, ensuring recording state is resumed...');
+      handleStartRecording(() => {}); 
+    }
+  }
+});
+
+async function ensureContentScriptInjected(tabId) {
+  try {
+    // Try to ping the content script
+    await new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(tabId, { action: 'PING' }, (response) => {
+        if (chrome.runtime.lastError || !response || response.status !== 'PONG') {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
+    });
+    console.log('Content script already active in tab:', tabId);
+  } catch (e) {
+    console.log('Content script not active, injecting now in tab:', tabId);
+    // Inject content script and CSS
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['src/content/content.js']
+    });
+    await chrome.scripting.insertCSS({
+      target: { tabId: tabId },
+      files: ['src/content/content.css']
+    });
+    // Wait a brief moment for script initialization
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
+
+async function handleStartRecording(sendResponse) {
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    if (tabs && tabs[0]) {
+      const tabId = tabs[0].id;
+      
+      // Ensure content script is ready before proceeding
+      await ensureContentScriptInjected(tabId);
+      
+      await storage.set({
+        isRecording: true,
+        recordingSteps: [],
+        recordingTabId: tabId
+      });
+      
+      chrome.action.setBadgeText({ text: 'REC' });
+      chrome.action.setBadgeBackgroundColor({ color: '#E53935' });
+      
+      chrome.tabs.sendMessage(tabId, { action: 'START_RECORDING' }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Failed to start recording even after injection:', chrome.runtime.lastError.message);
+        }
+      });
+      sendResponse({ status: 'recording' });
+    } else {
+      sendResponse({ status: 'error', message: 'No active tab found' });
+    }
+  });
+}
+
+async function handleStopRecording(sendResponse) {
+  const data = await storage.get(['recordingSteps', 'recordingTabId']);
+  const recordingTabId = data.recordingTabId;
+  let recordingSteps = data.recordingSteps || [];
+
+  await storage.set({ isRecording: false });
+  chrome.action.setBadgeText({ text: '' });
+
+  // Wait for any pending screenshots to complete
+  const waitForScreenshots = () => {
+    if (pendingScreenshots > 0) {
+      console.log(`Waiting for ${pendingScreenshots} pending screenshots...`);
+      setTimeout(waitForScreenshots, 100);
+    } else {
+      finishStopRecording(recordingTabId, recordingSteps, sendResponse);
+    }
+  };
+  waitForScreenshots();
+}
+
+function finishStopRecording(tabId, steps, sendResponse) {
+  const respond = (pageTitle) => {
+    console.log('Final Guide Steps:', steps);
+    sendResponse({ status: 'stopped', steps, pageTitle });
+  };
+
+  if (tabId) {
+    chrome.tabs.get(tabId, (tab) => {
+      const pageTitle = tab ? (tab.title || 'guide') : 'guide';
+      chrome.tabs.sendMessage(tabId, { action: 'STOP_RECORDING' }, () => {
+        if (chrome.runtime.lastError) console.warn('Content script not active.');
+      });
+      respond(pageTitle);
+    });
+  } else {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      const pageTitle = (tabs && tabs[0]) ? (tabs[0].title || 'guide') : 'guide';
+      respond(pageTitle);
+    });
+  }
+}
+
+async function handleGetStatus(sendResponse) {
+  const data = await storage.get(['isRecording', 'recordingSteps']);
+  sendResponse({ 
+    isRecording: data.isRecording || false, 
+    steps: data.recordingSteps || [] 
+  });
+}
+
+async function handleClearSession(sendResponse) {
+  await storage.clear();
+  console.log('Recording session cleared from storage.');
+  sendResponse({ success: true });
+}
+
+function handleCaptureClickStep(request, sender, sendResponse) {
+  pendingScreenshots++;
+  chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, async (dataUrl) => {
+    try {
       if (chrome.runtime.lastError) {
         console.warn('Screenshot failed:', chrome.runtime.lastError.message);
       }
+      
+      const data = await storage.get('recordingSteps');
+      const recordingSteps = data.recordingSteps || [];
+      
       const step = {
         type: 'click',
         clientX: request.clientX,
@@ -66,28 +180,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         screenshot: dataUrl || null,
         timestamp: Date.now()
       };
+      
       recordingSteps.push(step);
+      await storage.set({ recordingSteps });
       console.log('Captured step:', step);
-    });
-    // Respond immediately since we don't need the sender to wait
-    sendResponse({ success: true });
-  }
-  else if (request.action === 'RECORD_STEP') {
-    // Scroll or input events
-    const step = {
-      ...request.step,
-      timestamp: Date.now()
-    };
-    recordingSteps.push(step);
-    console.log('Captured step:', step);
-    sendResponse({ success: true });
-  }
-  
-  // Return true to keep the message channel open for async responses if needed
-  return true; 
-});
+    } finally {
+      pendingScreenshots--;
+      sendResponse({ success: true });
+    }
+  });
+}
 
-// Listener for installation or update
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('Guide Creator Extension installed.');
-});
+async function handleRecordStep(request, sendResponse) {
+  const data = await storage.get('recordingSteps');
+  const recordingSteps = data.recordingSteps || [];
+  
+  const step = {
+    ...request.step,
+    timestamp: Date.now()
+  };
+  
+  recordingSteps.push(step);
+  await storage.set({ recordingSteps });
+  console.log('Captured step:', step);
+  sendResponse({ success: true });
+}
