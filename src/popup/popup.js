@@ -64,6 +64,26 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+/**
+ * Loads an image from a URL and returns a Data URL.
+ */
+function loadImageAsDataUrl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+    img.src = url;
+  });
+}
+
 async function generatePDF(steps, pageTitle) {
   console.log('Generating PDF for steps:', steps);
 
@@ -73,7 +93,10 @@ async function generatePDF(steps, pageTitle) {
   doc.setFont('helvetica');
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text(pageTitle || "Guide Document", 20, 20);
+  
+  const maxTitleWidth = doc.internal.pageSize.width - 40;
+  const titleLines = doc.splitTextToSize(pageTitle || "Guide Document", maxTitleWidth);
+  doc.text(titleLines, 20, 20);
 
   const getImageAspectRatio = (dataUrl) => {
     return new Promise((resolve) => {
@@ -84,7 +107,8 @@ async function generatePDF(steps, pageTitle) {
     });
   };
 
-  let yOffset = 35;
+  // Adjust starting offset based on title height
+  let yOffset = 25 + (titleLines.length * 10);
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
@@ -94,7 +118,16 @@ async function generatePDF(steps, pageTitle) {
     const boxWidth = doc.internal.pageSize.width - (boxMargin * 2);
     const imgWidth = boxWidth - 10;
 
-    let boxHeight = 15; // Padding and text space
+    // Handle multi-line text wrapping
+    const maxTextWidth = boxWidth - 30; // Space after index circle
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const lines = doc.splitTextToSize(step.text, maxTextWidth);
+    const lineHeight = 6;
+    const textBlockHeight = lines.length * lineHeight;
+    const headerHeight = Math.max(15, textBlockHeight + 10);
+
+    let boxHeight = headerHeight;
     let imgHeight = 0;
 
     if (step.screenshot) {
@@ -124,12 +157,14 @@ async function generatePDF(steps, pageTitle) {
     doc.setFont('helvetica', 'bold');
     doc.text(`${i + 1}`, boxMargin + 10, yOffset + 7.5, { align: 'center', baseline: 'middle' });
 
-    // Draw step text
+    // Draw step text (multi-line)
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${step.text}`, boxMargin + 20, yOffset + 7.5, { baseline: 'middle' });
+    // Align text with circle vertically for single line, or start near top for multi-line
+    const textY = lines.length === 1 ? yOffset + 7.5 : yOffset + 6.5;
+    doc.text(lines, boxMargin + 20, textY, { baseline: 'middle' });
 
-    let innerYOffset = yOffset + 18; // Text leaves room below
+    let innerYOffset = yOffset + headerHeight + 2; // Position for image below text
 
     if (step.screenshot) {
       console.log(`Adding screenshot for step ${i + 1}`);
@@ -169,6 +204,18 @@ async function generatePDF(steps, pageTitle) {
   }
 
   const safeFilename = (pageTitle || 'guide').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  
+  // Add footers to all pages before saving
+  try {
+    const logoUrl = chrome.runtime.getURL('src/assets/icon128.png');
+    const logoDataUrl = await loadImageAsDataUrl(logoUrl);
+    await addFooters(doc, logoDataUrl);
+  } catch (err) {
+    console.error('Failed to add footers:', err);
+    // Continue saving even if footer fails
+    await addFooters(doc, null);
+  }
+
   doc.save(`${safeFilename}.pdf`);
 
   // Clear session after download
@@ -177,4 +224,38 @@ async function generatePDF(steps, pageTitle) {
       console.log('Session cleared successfully.');
     }
   });
+}
+
+/**
+ * Adds pagination and branding to every page in the document.
+ */
+async function addFooters(doc, logoDataUrl) {
+  const totalPages = doc.internal.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    
+    // Bottom line separator
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.2);
+    doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
+    
+    // Left side: Brand text + Logo
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Created with StepSnap', 20, pageHeight - 10);
+    
+    if (logoDataUrl) {
+      // Adjust X position based on text width if needed, for simplicity placing it after text
+      const textWidth = doc.getTextWidth('Created with StepSnap');
+      doc.addImage(logoDataUrl, 'PNG', 20 + textWidth + 3, pageHeight - 13.5, 4, 4);
+    }
+    
+    // Right side: Page number
+    const pageText = `Page ${i} of ${totalPages}`;
+    doc.text(pageText, pageWidth - 20, pageHeight - 10, { align: 'right' });
+  }
 }
