@@ -119,7 +119,7 @@ async function handleStopRecording(sendResponse) {
 
   const captureAndFinish = (windowId) => {
     pendingScreenshots++;
-    chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, async (dataUrl) => {
+    chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 50 }, async (dataUrl) => {
       try {
         if (chrome.runtime.lastError) {
           console.warn('Final screenshot failed:', chrome.runtime.lastError.message);
@@ -200,7 +200,7 @@ async function handleClearSession(sendResponse) {
 
 function handleCaptureClickStep(request, sender, sendResponse) {
   pendingScreenshots++;
-  chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, async (dataUrl) => {
+  chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'jpeg', quality: 50 }, async (dataUrl) => {
     try {
       if (chrome.runtime.lastError) {
         console.warn('Screenshot failed:', chrome.runtime.lastError.message);

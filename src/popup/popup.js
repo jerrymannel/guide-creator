@@ -75,6 +75,15 @@ async function generatePDF(steps, pageTitle) {
   doc.setFont('helvetica', 'bold');
   doc.text(pageTitle || "Guide Document", 20, 20);
 
+  const getImageAspectRatio = (dataUrl) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img.naturalHeight / img.naturalWidth);
+      img.onerror = () => resolve(9 / 16); // fallback
+      img.src = dataUrl;
+    });
+  };
+
   let yOffset = 35;
 
   for (let i = 0; i < steps.length; i++) {
@@ -89,7 +98,8 @@ async function generatePDF(steps, pageTitle) {
     let imgHeight = 0;
 
     if (step.screenshot) {
-      imgHeight = imgWidth * (9 / 16);
+      const aspectRatio = await getImageAspectRatio(step.screenshot);
+      imgHeight = imgWidth * aspectRatio;
       boxHeight += imgHeight + 5;
     }
 
@@ -129,7 +139,7 @@ async function generatePDF(steps, pageTitle) {
         doc.setLineWidth(0.5);
         doc.rect(boxMargin + 5, innerYOffset, imgWidth, imgHeight, 'D');
 
-        doc.addImage(step.screenshot, 'PNG', boxMargin + 5, innerYOffset, imgWidth, imgHeight);
+        doc.addImage(step.screenshot, 'JPEG', boxMargin + 5, innerYOffset, imgWidth, imgHeight, undefined, 'FAST');
 
         // Draw red circle for clicks
         if (step.type === 'click' && step.clientX != null && step.clientY != null && step.windowWidth && step.windowHeight) {
