@@ -6,6 +6,23 @@ const storage = {
 };
 
 let pendingScreenshots = 0;
+let stepProcessingPromise = Promise.resolve();
+
+/**
+ * Adds a step to storage sequentially using a promise chain to avoid race conditions.
+ */
+async function addStepToStorage(step) {
+  stepProcessingPromise = stepProcessingPromise.then(async () => {
+    const data = await storage.get('recordingSteps');
+    const recordingSteps = data.recordingSteps || [];
+    recordingSteps.push(step);
+    await storage.set({ recordingSteps });
+    console.log('Stored step:', step.type, step.text);
+  }).catch(err => {
+    console.error('Error adding step to storage:', err);
+  });
+  return stepProcessingPromise;
+}
 
 // Handle messages from the popup or content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -130,17 +147,19 @@ async function handleStopRecording(sendResponse) {
             screenshot: dataUrl || null,
             timestamp: Date.now()
           };
-          recordingSteps.push(step);
-          await storage.set({ recordingSteps });
+          await addStepToStorage(step);
         }
       } finally {
         pendingScreenshots--;
-        const waitForScreenshots = () => {
+        const waitForScreenshots = async () => {
+          await stepProcessingPromise; // Wait for all storage updates to finish
           if (pendingScreenshots > 0) {
             console.log(`Waiting for ${pendingScreenshots} pending screenshots...`);
             setTimeout(waitForScreenshots, 100);
           } else {
-            finishStopRecording(recordingTabId, recordingSteps, sendResponse);
+            // Fetch the final steps explicitly to ensure we have everything
+            const finalData = await storage.get('recordingSteps');
+            finishStopRecording(recordingTabId, finalData.recordingSteps || [], sendResponse);
           }
         };
         waitForScreenshots();
@@ -222,9 +241,7 @@ function handleCaptureClickStep(request, sender, sendResponse) {
         timestamp: Date.now()
       };
       
-      recordingSteps.push(step);
-      await storage.set({ recordingSteps });
-      console.log('Captured step:', step);
+      await addStepToStorage(step);
     } finally {
       pendingScreenshots--;
       sendResponse({ success: true });
@@ -233,16 +250,11 @@ function handleCaptureClickStep(request, sender, sendResponse) {
 }
 
 async function handleRecordStep(request, sendResponse) {
-  const data = await storage.get('recordingSteps');
-  const recordingSteps = data.recordingSteps || [];
-  
   const step = {
     ...request.step,
     timestamp: Date.now()
   };
   
-  recordingSteps.push(step);
-  await storage.set({ recordingSteps });
-  console.log('Captured step:', step);
+  await addStepToStorage(step);
   sendResponse({ success: true });
 }
