@@ -1,6 +1,6 @@
 {
   "name": "guide-creator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Create engaging guides quickly directly from your browser.",
   "scripts": {
     "test": "jest"
