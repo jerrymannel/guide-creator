@@ -3,16 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Guide Creator</title>
+  <title>StepSnap</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Guide Creator</h1>
+      <h1>StepSnap</h1>
     </header>
     <main>
-      <p>Click "Start Recording" to begin creating a guide on this page.</p>
+      <div id="introContainer" class="intro-container">
+        <p><strong>StepSnap</strong> automatically creates step-by-step PDF guides with screenshots as you interact with the page.</p>
+        <ol class="steps-list">
+          <li>Click <strong>Start Recording</strong></li>
+          <li>Perform your actions normally</li>
+          <li>Click <strong>Stop Recording</strong></li>
+        </ol>
+        <div class="privacy-note">
+          🔒 <strong>Privacy First:</strong> Everything is processed and saved entirely locally. We do not collect or transmit any of your data.
+        </div>
+      </div>
       <button id="startBtn" class="primary-btn">Start Recording</button>
       <button id="stopBtn" class="secondary-btn" hidden>Stop Recording</button>
       

@@ -1,6 +1,6 @@
-# Guide Creator Extension
+# StepSnap Extension
 
-**Guide Creator** is a Chrome extension designed to help users create engaging, step-by-step guides quickly and easily directly from their browser. It streamlines the process of documenting workflows, tutorials, or processes by capturing user interactions and generating structured guide content.
+**StepSnap** is a Chrome extension designed to help users create engaging, step-by-step guides quickly and easily directly from their browser. It streamlines the process of documenting workflows, tutorials, or processes by capturing user interactions and generating structured guide content.
 
 ## Features
 
@@ -29,7 +29,7 @@ The extension icon should now appear in your browser toolbar.
 ## Usage
 
 1.  Navigate to the web page where you want to create a guide.
-2.  Click the **Guide Creator** extension icon in the toolbar.
+2.  Click the **StepSnap** extension icon in the toolbar.
 3.  Click **Start Recording** in the popup.
 4.  Perform the actions you want to document (e.g., click buttons, fill forms, navigate).
 5.  When finished, click **Stop Recording**.

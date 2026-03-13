@@ -1,20 +1,31 @@
 {
   "manifest_version": 3,
-  "name": "Guide Creator",
+  "name": "StepSnap",
   "version": "1.0.0",
-  "description": "Create engaging guides quickly directly from your browser.",
+  "description": "Easily record clicks, typing, and scrolling to automatically generate beautiful, step-by-step PDF guides with annotated screenshots.",
   "action": {
     "default_popup": "src/popup/popup.html",
-    "default_title": "Open Guide Creator"
+    "default_title": "Open StepSnap"
   },
   "background": {
     "service_worker": "src/background/background.js"
   },
+  "icons": {
+    "16": "src/assets/icon16.png",
+    "48": "src/assets/icon48.png",
+    "128": "src/assets/icon128.png"
+  },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["src/content/content.js"],
-      "css": ["src/content/content.css"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content/content.js"
+      ],
+      "css": [
+        "src/content/content.css"
+      ]
     }
   ],
   "permissions": [

@@ -1,5 +1,5 @@
 // Initialize UI or observers when loaded
-console.log('Guide Creator Content Script initialized.');
+console.log('StepSnap Content Script initialized.');
 
 let isRecording = false;
 
