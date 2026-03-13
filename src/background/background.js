@@ -10,9 +10,9 @@ let pendingScreenshots = 0;
 // Handle messages from the popup or content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'START_RECORDING') {
-    handleStartRecording(sendResponse);
+    handleStartRecording(sendResponse, true);
     return true;
-  } 
+  }
   else if (request.action === 'STOP_RECORDING') {
     handleStopRecording(sendResponse);
     return true;
@@ -75,7 +75,7 @@ async function ensureContentScriptInjected(tabId) {
   }
 }
 
-async function handleStartRecording(sendResponse) {
+async function handleStartRecording(sendResponse, resetSteps = false) {
   chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     if (tabs && tabs[0]) {
       const tabId = tabs[0].id;
@@ -83,11 +83,16 @@ async function handleStartRecording(sendResponse) {
       // Ensure content script is ready before proceeding
       await ensureContentScriptInjected(tabId);
       
-      await storage.set({
+      const storageData = {
         isRecording: true,
-        recordingSteps: [],
         recordingTabId: tabId
-      });
+      };
+      
+      if (resetSteps) {
+        storageData.recordingSteps = [];
+      }
+      
+      await storage.set(storageData);
       
       chrome.action.setBadgeText({ text: 'REC' });
       chrome.action.setBadgeBackgroundColor({ color: '#E53935' });
