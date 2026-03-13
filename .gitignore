@@ -250,3 +250,5 @@ cleanup.sh
 send.sh
 public/
 run.sh
+
+*.zip
