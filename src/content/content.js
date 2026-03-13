@@ -105,7 +105,9 @@ document.addEventListener('click', (e) => {
       action: 'CAPTURE_CLICK_STEP',
       target: targetInfo,
       clientX: e.clientX,
-      clientY: e.clientY
+      clientY: e.clientY,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight
     });
   }, 50);
 }, true);

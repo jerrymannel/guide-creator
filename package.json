@@ -3,12 +3,19 @@
   "version": "1.0.0",
   "description": "Create engaging guides quickly directly from your browser.",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [
     "chrome-extension",
     "guide"
   ],
   "author": "Jerry Mannel",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "chrome-jest-mock": "^1.0.2",
+    "jest": "^30.3.0",
+    "jest-chrome": "^0.8.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jsdom": "^28.1.0"
+  }
 }

@@ -117,16 +117,49 @@ async function handleStopRecording(sendResponse) {
   await storage.set({ isRecording: false });
   chrome.action.setBadgeText({ text: '' });
 
-  // Wait for any pending screenshots to complete
-  const waitForScreenshots = () => {
-    if (pendingScreenshots > 0) {
-      console.log(`Waiting for ${pendingScreenshots} pending screenshots...`);
-      setTimeout(waitForScreenshots, 100);
-    } else {
-      finishStopRecording(recordingTabId, recordingSteps, sendResponse);
-    }
+  const captureAndFinish = (windowId) => {
+    pendingScreenshots++;
+    chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, async (dataUrl) => {
+      try {
+        if (chrome.runtime.lastError) {
+          console.warn('Final screenshot failed:', chrome.runtime.lastError.message);
+        } else {
+          const step = {
+            type: 'final',
+            text: 'Final result',
+            screenshot: dataUrl || null,
+            timestamp: Date.now()
+          };
+          recordingSteps.push(step);
+          await storage.set({ recordingSteps });
+        }
+      } finally {
+        pendingScreenshots--;
+        const waitForScreenshots = () => {
+          if (pendingScreenshots > 0) {
+            console.log(`Waiting for ${pendingScreenshots} pending screenshots...`);
+            setTimeout(waitForScreenshots, 100);
+          } else {
+            finishStopRecording(recordingTabId, recordingSteps, sendResponse);
+          }
+        };
+        waitForScreenshots();
+      }
+    });
   };
-  waitForScreenshots();
+
+  if (recordingTabId) {
+    chrome.tabs.get(recordingTabId, (tab) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Could not get recording tab:', chrome.runtime.lastError.message);
+        captureAndFinish(null);
+        return;
+      }
+      captureAndFinish(tab ? tab.windowId : null);
+    });
+  } else {
+    captureAndFinish(null);
+  }
 }
 
 function finishStopRecording(tabId, steps, sendResponse) {
@@ -176,12 +209,15 @@ function handleCaptureClickStep(request, sender, sendResponse) {
       const data = await storage.get('recordingSteps');
       const recordingSteps = data.recordingSteps || [];
       
+      const textToDisplay = request.target.innerText ? request.target.innerText.trim() : request.target.tagName.toUpperCase();
       const step = {
         type: 'click',
         clientX: request.clientX,
         clientY: request.clientY,
+        windowWidth: request.windowWidth,
+        windowHeight: request.windowHeight,
         target: request.target,
-        text: `Clicked on ${request.target.tagName.toLowerCase()}`,
+        text: `Click on "${textToDisplay}"`,
         screenshot: dataUrl || null,
         timestamp: Date.now()
       };
