@@ -13,27 +13,32 @@
     </header>
     <main>
       <div id="introContainer" class="intro-container">
-        <p><strong>StepSnap</strong> automatically creates step-by-step PDF guides with screenshots as you interact with the page.</p>
+        <p class="body-text"><strong>StepSnap</strong> automatically creates step-by-step PDF guides with screenshots as you interact with the page.</p>
         <ol class="steps-list">
           <li>Click <strong>Start Recording</strong></li>
           <li>Perform your actions normally</li>
           <li>Click <strong>Stop Recording</strong></li>
         </ol>
         <div class="privacy-note">
-          🔒 <strong>Privacy First:</strong> Everything is processed and saved entirely locally. We do not collect or transmit any of your data.
+          <span aria-hidden="true">🔒</span> <strong>Privacy First:</strong> Everything is processed and saved entirely locally. We do not collect or transmit any of your data.
         </div>
       </div>
+
+      <div id="recordingIndicator" class="recording-indicator" hidden>
+        <span class="recording-dot" aria-hidden="true"></span>
+        <span>Recording in progress</span>
+      </div>
+
       <button id="startBtn" class="primary-btn">Start Recording</button>
-      <button id="stopBtn" class="secondary-btn" hidden>Stop Recording</button>
-      
+      <button id="stopBtn" class="stop-btn" hidden>Stop Recording</button>
+
       <div id="titlePrompt" hidden>
-        <p>Enter a title for your document:</p>
-        <input type="text" id="guideTitle" class="text-input" />
-        <button id="generatePdfBtn" class="primary-btn">Generate</button>
+        <input type="text" id="guideTitle" class="text-input" placeholder="Guide title..." aria-label="Guide title" />
+        <button id="generatePdfBtn" class="primary-btn">Download PDF</button>
       </div>
     </main>
     <footer>
-      <span id="status">Ready</span>
+      <span id="status" role="status" aria-live="polite">Ready</span>
     </footer>
   </div>
   <script src="../lib/jspdf.umd.min.js"></script>

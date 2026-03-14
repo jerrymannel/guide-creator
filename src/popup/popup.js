@@ -3,9 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const stopBtn = document.getElementById('stopBtn');
   const statusEl = document.getElementById('status');
 
+  const introContainer = document.getElementById('introContainer');
   const titlePrompt = document.getElementById('titlePrompt');
   const guideTitleInput = document.getElementById('guideTitle');
   const generatePdfBtn = document.getElementById('generatePdfBtn');
+  const recordingIndicator = document.getElementById('recordingIndicator');
 
   let currentSteps = [];
   let currentPageTitle = '';
@@ -13,8 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize UI state
   chrome.runtime.sendMessage({ action: 'GET_STATUS' }, (response) => {
     if (response && response.isRecording) {
+      introContainer.hidden = true;
       startBtn.hidden = true;
       stopBtn.hidden = false;
+      recordingIndicator.hidden = false;
       statusEl.textContent = 'Recording in progress...';
     }
   });
@@ -22,8 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
   startBtn.addEventListener('click', async () => {
     chrome.runtime.sendMessage({ action: 'START_RECORDING' }, (response) => {
       if (response && response.status === 'recording') {
+        introContainer.hidden = true;
         startBtn.hidden = true;
         stopBtn.hidden = false;
+        recordingIndicator.hidden = false;
         statusEl.textContent = 'Recording in progress...';
       }
     });
@@ -34,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (response && response.status === 'stopped') {
         startBtn.hidden = true;
         stopBtn.hidden = true;
+        recordingIndicator.hidden = true;
         titlePrompt.hidden = false;
 
         guideTitleInput.value = response.pageTitle || 'Guide Document';
@@ -54,11 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
       statusEl.textContent = 'PDF generated!';
       setTimeout(() => {
         statusEl.textContent = 'Ready';
+        introContainer.hidden = false;
         startBtn.hidden = false;
       }, 3000);
     }).catch(err => {
       console.error(err);
       statusEl.textContent = 'Error generating PDF';
+      introContainer.hidden = false;
       startBtn.hidden = false;
     });
   });
@@ -93,7 +102,7 @@ async function generatePDF(steps, pageTitle) {
   doc.setFont('helvetica');
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  
+
   const maxTitleWidth = doc.internal.pageSize.width - 40;
   const titleLines = doc.splitTextToSize(pageTitle || "Guide Document", maxTitleWidth);
   doc.text(titleLines, 20, 20);
@@ -143,8 +152,8 @@ async function generatePDF(steps, pageTitle) {
     }
 
     // Draw light blue box
-    doc.setFillColor(238, 243, 248);
-    doc.setDrawColor(238, 243, 248);
+    doc.setFillColor("#ddeaf0");
+    doc.setDrawColor("#ddeaf0");
     doc.roundedRect(boxMargin, yOffset, boxWidth, boxHeight, 2, 2, 'FD');
 
     // Draw step circle
@@ -204,7 +213,7 @@ async function generatePDF(steps, pageTitle) {
   }
 
   const safeFilename = (pageTitle || 'guide').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  
+
   // Add footers to all pages before saving
   try {
     const logoUrl = chrome.runtime.getURL('src/assets/icon128.png');
@@ -233,27 +242,27 @@ async function addFooters(doc, logoDataUrl) {
   const totalPages = doc.internal.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
-  
+
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    
+
     // Bottom line separator
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.2);
     doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
-    
+
     // Left side: Brand text + Logo
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.setFont('helvetica', 'normal');
     doc.text('Created with StepSnap', 20, pageHeight - 10);
-    
+
     if (logoDataUrl) {
       // Adjust X position based on text width if needed, for simplicity placing it after text
       const textWidth = doc.getTextWidth('Created with StepSnap');
       doc.addImage(logoDataUrl, 'PNG', 20 + textWidth + 3, pageHeight - 13.5, 4, 4);
     }
-    
+
     // Right side: Page number
     const pageText = `Page ${i} of ${totalPages}`;
     doc.text(pageText, pageWidth - 20, pageHeight - 10, { align: 'right' });
